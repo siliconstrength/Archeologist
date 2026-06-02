@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "fivetran-management-server": {
+      "command": "npx",
+      "args": ["-y", "@fivetran/mcp-server"],
+      "env": {
+        "FIVETRAN_API_KEY": "${FIVETRAN_API_KEY}",
+        "FIVETRAN_API_SECRET": "${FIVETRAN_API_SECRET}"
+      }
+    }
+  }
+}
