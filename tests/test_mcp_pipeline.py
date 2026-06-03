@@ -1,8 +1,9 @@
 # tests/test_mcp_pipeline.py
 # pyrefly: ignore [missing-import]
+import os
 import pytest
 from unittest.mock import MagicMock, patch
-from app.core import archeologist_pipeline
+from app.core import data_archeologist_pipeline
 
 class MockExecutionResult:
     """Mock result to simulate ADK graph pipeline responses when running without live API keys."""
@@ -14,7 +15,7 @@ class MockExecutionResult:
         return tool_name in self.called_tools
 
 @patch('google.cloud.bigquery.Client')
-def test_archeologist_execution_cycle(mock_bq_client):
+def test_data_archeologist_execution_cycle(mock_bq_client):
     """Verifies that the multi-agent diagnostic cycle behaves correctly under the sequential graph workflow."""
     
     # 1. Setup mock BigQuery responses to simulate finding the anomalies
@@ -65,7 +66,7 @@ def test_archeologist_execution_cycle(mock_bq_client):
         execution_result = MockExecutionResult(simulated_output, called_tools)
     else:
         # Live run with credentials
-        execution_result = archeologist_pipeline.run(input=sample_incident)
+        execution_result = data_archeologist_pipeline.run(input=sample_incident)
         
     # 3. Validation assertions confirming tool-use compliance
     assert execution_result.has_called_tool("fivetran_sync_connector")
@@ -76,5 +77,3 @@ def test_archeologist_execution_cycle(mock_bq_client):
     assert "STATIC_EXPIRED_FALLBACK_VAL" in execution_result.output
     
     print("\nVerification Success: Closed-loop multi-agent diagnostic cycle verified.")
-
-import os

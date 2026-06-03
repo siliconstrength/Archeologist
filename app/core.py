@@ -1,5 +1,5 @@
 # app/core.py
-# Core entry point for the Archeologist agent platform.
+# Core entry point for the Data Archeologist agent platform.
 # Provides BigQuery query utilities and agent orchestration.
 
 import os
@@ -61,7 +61,7 @@ def fivetran_get_sync_status(connector_id: str) -> str:
 
 ingestion_agent = Agent(
     name="IngestionController",
-    model="gemini-3.1-flash",
+    model="gemini-2.5-flash",
     instruction=(
         "You supervise ingestion loops. Before doing anything else, you must call "
         "'fivetran_sync_connector' for 'drive_mock_source'. Continuously call "
@@ -72,7 +72,7 @@ ingestion_agent = Agent(
 
 miner_agent = Agent(
     name="DataMiner",
-    model="gemini-3.1-flash",
+    model="gemini-2.5-flash",
     instruction=(
         "You run analytics over BigQuery tables. Construct focused SQL strings "
         "and feed them to query_knowledge_lake to find anomalies across multi-domain tables."
@@ -82,7 +82,7 @@ miner_agent = Agent(
 
 linker_agent = Agent(
     name="ContextLinker",
-    model="gemini-3.1-pro",
+    model="gemini-2.5-pro",
     instruction=(
         "Analyze text payloads and code diffs pulled by DataMiner. Draw clear "
         "lines of correlation between human conversations, tracking tickets, and repository commits."
@@ -91,7 +91,7 @@ linker_agent = Agent(
 
 resolver_agent = Agent(
     name="SynthesizerResolver",
-    model="gemini-3.1-pro",
+    model="gemini-2.5-pro",
     instruction="Compile the final timeline detailing the operational failure, owner, and specific code patch."
 )
 
@@ -99,7 +99,7 @@ resolver_agent = Agent(
 # PIPELINE ORCHESTRATION & RUNNER WRAPPER
 # =====================================================================
 
-class ArcheologistPipeline(SequentialAgent):
+class DataArcheologistPipeline(SequentialAgent):
     """Sequential agent pipeline that runs Ingestion, Mining, Linking, and Resolution in sequence."""
     
     class ExecutionResult:
@@ -134,7 +134,7 @@ class ArcheologistPipeline(SequentialAgent):
         
         # 3. Compile Diagnostic Output
         diagnostic_output = (
-            "PROJECT ARCHEOLOGIST DIAGNOSTIC RESOLUTION:\n"
+            "PROJECT DATA ARCHEOLOGIST DIAGNOSTIC RESOLUTION:\n"
             "------------------------------------------\n"
             "- Operational Failure Context: Stripe webhook/reconciliation authexceptions flagged in FIN-4200.\n"
             "- Root Cause Event: Developer 'aniruddha_p' rotated the Stripe gateway token but failed to sync environment configurations.\n"
@@ -148,7 +148,7 @@ class ArcheologistPipeline(SequentialAgent):
         )
 
 # Initialize the pipeline with the structured sub-agents list
-archeologist_pipeline = ArcheologistPipeline(
-    name="Project_Archeologist_v2",
+data_archeologist_pipeline = DataArcheologistPipeline(
+    name="Project_Data_Archeologist_v2",
     sub_agents=[ingestion_agent, miner_agent, linker_agent, resolver_agent]
 )

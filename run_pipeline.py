@@ -3,7 +3,7 @@
 # Tiny helper to launch the full ADK agent pipeline.
 # -------------------------------------------------
 import os
-from app.core import archeologist_pipeline
+from app.core import data_archeologist_pipeline
 
 # ------------------------------------------------------------------
 # Sample incident – replace with any real incident you want to analyse.
@@ -17,7 +17,7 @@ a hard‑coded expired token string, breaking reconciliation jobs.
 
 def main() -> None:
     # Use the pre‑initialized pipeline instance.
-    pipeline = archeologist_pipeline
+    pipeline = data_archeologist_pipeline
     # Run the whole workflow.
     result = pipeline.run(sample_incident)
 
