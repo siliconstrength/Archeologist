@@ -2,11 +2,19 @@
 
 > Autonomous Multi-Agent Institutional Memory Recovery Platform
 
-Project Data Archeologist is a code-first, autonomous multi-agent platform that helps teams detect and diagnose institutional knowledge gaps and software complexity across enterprise systems.
+Project Data Archeologist is a code-first, autonomous multi-agent platform that helps teams detect and diagnose institutional knowledge gaps and data complexity across enterprise systems as well as applicable to Community Operations.
 
 By integrating the **Fivetran MCP Server** with the **Google Agent Development Kit (ADK) 2.0**, it transforms telemetry ingestion from a passive background routine into a dynamic, agent-directed operation.
 
-**Use Case:** Think of the exact situation teams fear most: a critical marketing data pipeline fails during business hours, the lead architect who knew the history left last week, and a junior engineer just pushed an unchecked configuration change while trying to optimize Snowflake-to-BigQuery costs. Project Data Archeologist is built for that moment. It pulls fresh operational data, traces why the change happened, identifies who approved it, links the failure back to code and ticket history, and returns a concrete remediation path instead of a vague postmortem. It uses data from sources like Git commits, Slack Messages and Jira based operational data to investigate and provide comprehensive solution.
+**Illustrative Use Case:** Think of the exact situation teams fear most: a critical marketing data pipeline fails during business hours, the lead architect who knew the history left last week, and a junior engineer just pushed an unchecked configuration change while trying to optimize Snowflake-to-BigQuery costs. Project Data Archeologist is built for that moment. It pulls fresh operational data, traces why the change happened, identifies who approved it, links the failure back to code and ticket history, and returns a concrete remediation path instead of a vague postmortem. It uses data from sources like Git commits, Slack Messages and Jira based operational data to investigate and provide comprehensive solution.
+
+### Community Use Cases (Beyond Enterprise)
+
+1. **Public Health Coordination**: Correlates field reports, logistics updates, and team communications to quickly identify why outreach or supply workflows failed.
+2. **Disaster Response and Relief**: Reconstructs fragmented timelines across volunteer channels to detect bottlenecks, reduce duplicate efforts, and speed up aid delivery.
+3. **City and Civic Services**: Links citizen complaints, maintenance logs, and process changes to surface root causes behind recurring service disruptions.
+4. **Schools and Universities**: Connects support tickets, communications, and policy changes to diagnose delays in student-facing services like financial aid and transport.
+5. **Nonprofit Operations**: Preserves institutional memory across staff turnover by tying decisions, incidents, and fixes into one traceable operational history.
 
 ---
 
