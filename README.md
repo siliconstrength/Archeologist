@@ -219,6 +219,51 @@ Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/health" -Method Get
 Invoke-RestMethod -Uri "http://127.0.0.1:8000/api/trace/execute" -Method Post -ContentType "application/json" -Body '{"incident_text":"Finance reconciliation failed after token rotation and fallback patch.","include_raw_data":false}'
 ```
 
+## Output Display
+
+This section embeds representative outputs from:
+- `terminal_output_example.md`
+- `ui_output_example.md`
+
+### Terminal Output Example (`adk run app`)
+
+The terminal run demonstrates full multi-agent progression from incident intake to synthesis:
+
+```text
+Running agent Project_Data_Archeologist_v2, type exit to exit.
+
+[user]: "The finance-recon tracking system broke this morning. Update the knowledge graph and trace the bug"
+
+[IngestionController]: Fivetran ingestion for `drive_mock_source` is complete.
+[DataMiner]: Requests affected BigQuery tables and anomaly scope.
+[ContextLinker]: Correlates Slack + Jira + Git and identifies timezone bug in dbt filter logic.
+[SynthesizerResolver]: Produces final timeline, owner, and code patch summary.
+```
+
+Key extracted evidence from the terminal output:
+
+- **Incident:** Missing post-midnight reconciliation rows.
+- **Tables:** `payments_master`, `gateway_transactions`.
+- **Ticket:** `FIN-7811`.
+- **Commit:** `8a2d1e9`.
+- **Root cause:** UTC/PST date comparison mismatch in downstream dbt model.
+- **Fix pattern:** timezone-aware date filtering in `stg_stripe_payments.sql`.
+
+```diff
+-- models/finance/staging/stg_stripe_payments.sql
+WHERE
+-   DATE(created_at) = CURRENT_DATE()
++   DATE(created_at, 'America/Los_Angeles') = CURRENT_DATE('America/Los_Angeles')
+```
+
+### UI Output Example
+
+The UI output example file captures the full incident entry plus agent-level results and final remediation:
+
+![Project Data Archeologist UI Output 1](assets/ui.png)
+
+![Project Data Archeologist UI Output 2](assets/ui-1.png)
+
 ---
 
 ## Troubleshooting Notes
