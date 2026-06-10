@@ -25,18 +25,30 @@ Typical use case: a critical marketing data pipeline breaks, the architect who o
 
 ```mermaid
 flowchart TB
-  IN[Incident Input] --> IC[IngestionController\nGemini 2.5 Flash]
-  IC --> DM[DataMiner\nGemini 2.5 Flash]
-  DM --> CL[ContextLinker\nGemini 2.5 Pro]
-  CL --> SR[SynthesizerResolver\nGemini 2.5 Pro]
-  SR --> OUT[Final Conclusion]
+  subgraph Frontend [Cloud Run: Frontend UI]
+    UI[React SPA]
+  end
 
-  IC --> FT[Fivetran MCP Tools]
-  DM --> BQ[BigQuery Query Tool]
+  subgraph Backend [Cloud Run: API Proxy]
+    API[FastAPI Proxy]
+  end
 
-  IN --> UI[Frontend UI]
-  UI --> API[Trace API\nPOST /api/trace/execute]
-  API --> OUT
+  subgraph Vertex [Vertex AI: Agent Engine]
+    IC[IngestionController\nGemini 2.5 Flash]
+    DM[DataMiner\nGemini 2.5 Flash]
+    CL[ContextLinker\nGemini 2.5 Pro]
+    SR[SynthesizerResolver\nGemini 2.5 Pro]
+
+    IC --> DM
+    DM --> CL
+    CL --> SR
+  end
+
+  UI -- HTTP POST --> API
+  API -- Stream API --> Vertex
+
+  IC -.-> FT[Fivetran MCP Tools]
+  DM -.-> BQ[BigQuery Query Tool]
 ```
 
 ## Detailed Execution Flow
@@ -62,10 +74,10 @@ flowchart TB
 
 ## Runtime Entry Points
 
-- ADK entrypoint: `app/agent.py` (exports `root_agent`)
-- Pipeline logic: `app/core.py`
-- CLI runner: `run_pipeline.py`
-- Trace API server: `app/api/main.py`
+- Agent definition: `agent_deploy/agent.py` (exports `root_agent`)
+- Vertex AI deployment: `agent_deploy/deploy_vertex.py`
+- Local testing: `tests/test_agent_local.py`
+- Trace API server proxy: `app/api/main.py`
 - Frontend UI app: `frontend/`
 
 ## MCP and Config
