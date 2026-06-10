@@ -1,276 +1,110 @@
 # Deployment Guide 
 
-This guide deploys the full Project Data Archeologist stack on GCP with the fastest practical setup:
+This guide deploys the full Project Data Archeologist stack on GCP. The architecture uses a three-tier model to securely expose the Google Agent Development Kit (ADK) reasoning engine:
 
-- Backend API on Cloud Run
-- Frontend UI on Cloud Run
-- Secrets in Secret Manager
-- BigQuery access through Cloud Run service account
-
-Result: testers get one frontend URL and can validate full functionality quickly.
+1. **Vertex AI Agent Engine or Google Agent Cloud Builder:** The core reasoning agent.
+2. **Cloud Run Backend:** A lightweight, secure proxy API.
+3. **Cloud Run Frontend:** A React UI served by Nginx.
 
 ---
 
 ## 1. Prerequisites
 
 Install and configure:
-
 - Google Cloud SDK (`gcloud`)
-- Docker Desktop (or Cloud Build only)
 - Access to a GCP project with billing enabled
 
 Authenticate:
-
-```powershell
+```bash
 gcloud auth login
 gcloud auth application-default login
+gcloud config set project YOUR_PROJECT_ID
+gcloud config set run/region us-central1
 ```
 
-Create a `.env` file at repository root and keep all reusable variables there.
-
-> Do not commit secrets. Ensure `.env` is in `.gitignore`.
-
-Example `.env`:
-
-```dotenv
-PROJECT_ID=YOUR_PROJECT_ID
-REGION=us-central1
-
-BACKEND_SERVICE=data-archeologist-api
-FRONTEND_SERVICE=data-archeologist-ui
-SERVICE_ACCOUNT=archeologist-run-sa
-
-SECRET_GEMINI_API_KEY=GEMINI_API_KEY
-GEMINI_API_KEY_VALUE=YOUR_GEMINI_API_KEY
-```
-
-Load `.env` variables into your current PowerShell session:
-
-```powershell
-Get-Content .env |
-  Where-Object { $_ -and $_ -notmatch '^\s*#' } |
-  ForEach-Object {
-    $name, $value = $_ -split '=', 2
-    Set-Item -Path "Env:$name" -Value $value
-  }
-
-gcloud config set project $env:PROJECT_ID
-gcloud config set run/region $env:REGION
-gcloud auth application-default set-quota-project $env:PROJECT_ID
+Enable Required Services:
+```bash
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com iam.googleapis.com bigquery.googleapis.com aiplatform.googleapis.com
 ```
 
 ---
 
-## 2. Enable Required GCP Services
+## 2. Deploy Agent to Vertex AI
 
-```powershell
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com iam.googleapis.com bigquery.googleapis.com --project $env:PROJECT_ID
+The agent is deployed to the fully managed Vertex AI Agent Engine platform using the Google ADK.
+
+1. Navigate to the deployment folder:
+```bash
+cd agent_deploy
+```
+
+2. Run the deployment script to upload the agent to Vertex AI:
+```bash
+# Ensure you are using Python 3.11
+pip install -r requirements.txt
+python deploy_vertex.py
+```
+
+3. Note your **Engine ID** from the output. Set it as an environment variable for the next steps:
+```bash
+export AGENT_ENGINE_ID="your_engine_id_here"
+export PROJECT_ID="your_project_id_here"
 ```
 
 ---
 
-## 3. Create Runtime Service Account and IAM
+## 3. Deploy Backend API Proxy (Cloud Run)
 
-Create service account:
+The backend is a minimal FastAPI/Starlette server that securely forwards HTTP requests to the deployed Vertex AI Agent Engine.
 
-```powershell
-gcloud iam service-accounts create $env:SERVICE_ACCOUNT --display-name "Archeologist Cloud Run SA" --project $env:PROJECT_ID
+1. Submit the backend build from the repository root:
+```bash
+gcloud builds submit --config cloudbuild.backend.yaml --project $PROJECT_ID .
 ```
 
-Grant minimum roles (tighten later by dataset if needed):
+2. Deploy the backend image:
+```bash
+gcloud run deploy data-archeologist-api \
+  --image gcr.io/$PROJECT_ID/data-archeologist-api \
+  --platform managed --region us-central1 --project $PROJECT_ID \
+  --memory 1024Mi \
+  --allow-unauthenticated
+```
 
-```powershell
-gcloud projects add-iam-policy-binding $env:PROJECT_ID --member="serviceAccount:$($env:SERVICE_ACCOUNT)@$($env:PROJECT_ID).iam.gserviceaccount.com" --role="roles/bigquery.dataViewer" --project $env:PROJECT_ID
-gcloud projects add-iam-policy-binding $env:PROJECT_ID --member="serviceAccount:$($env:SERVICE_ACCOUNT)@$($env:PROJECT_ID).iam.gserviceaccount.com" --role="roles/bigquery.jobUser" --project $env:PROJECT_ID
-gcloud projects add-iam-policy-binding $env:PROJECT_ID --member="serviceAccount:$($env:SERVICE_ACCOUNT)@$($env:PROJECT_ID).iam.gserviceaccount.com" --role="roles/secretmanager.secretAccessor" --project $env:PROJECT_ID
+3. Update the backend environment variables with your Engine ID:
+```bash
+gcloud run services update data-archeologist-api \
+  --update-env-vars="AGENT_ENGINE_ID=$AGENT_ENGINE_ID" \
+  --region=us-central1 --project=$PROJECT_ID
+```
+
+4. Note the Backend URL (e.g., `https://data-archeologist-api-...run.app`).
+
+---
+
+## 4. Deploy Frontend UI (Cloud Run)
+
+The frontend is a React SPA built with Vite. It is hosted on Cloud Run using an Nginx container.
+
+1. Submit the frontend build from the repository root:
+```bash
+gcloud builds submit --config cloudbuild.frontend.yaml --project $PROJECT_ID .
+```
+
+2. Deploy the frontend image:
+```bash
+gcloud run deploy data-archeologist-ui \
+  --image gcr.io/$PROJECT_ID/data-archeologist-ui \
+  --platform managed --region us-central1 --project $PROJECT_ID \
+  --memory 512Mi \
+  --allow-unauthenticated
 ```
 
 ---
 
-## 4. Store Secrets in Secret Manager
+## 5. Share With Testers
 
-Create Gemini API key secret:
+You now have a fully deployed end-to-end stack!
 
-```powershell
-$env:GEMINI_API_KEY_VALUE | gcloud secrets create $env:SECRET_GEMINI_API_KEY --data-file=- --project $env:PROJECT_ID
-```
-
-If secret already exists, add a new version:
-
-```powershell
-$env:GEMINI_API_KEY_VALUE | gcloud secrets versions add $env:SECRET_GEMINI_API_KEY --data-file=- --project $env:PROJECT_ID
-```
-
----
-
-## 5. Backend Deployment (Cloud Run)
-
-### 5.1 Create backend Dockerfile
-
-Create file `Dockerfile.backend` at repo root:
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
-
-ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
-
-CMD ["sh", "-c", "uvicorn app.api.main:api --host 0.0.0.0 --port ${PORT}"]
-```
-
-### 5.2 Build and deploy backend
-
-```powershell
-gcloud builds submit --tag gcr.io/$env:PROJECT_ID/$env:BACKEND_SERVICE -f Dockerfile.backend . --project $env:PROJECT_ID
-
-gcloud run deploy $env:BACKEND_SERVICE `
-  --image gcr.io/$env:PROJECT_ID/$env:BACKEND_SERVICE `
-  --platform managed `
-  --region $env:REGION `
-  --allow-unauthenticated `
-  --service-account "$($env:SERVICE_ACCOUNT)@$($env:PROJECT_ID).iam.gserviceaccount.com" `
-  --set-secrets GEMINI_API_KEY=$($env:SECRET_GEMINI_API_KEY):latest `
-  --project $env:PROJECT_ID
-```
-
-Get backend URL:
-
-```powershell
-$env:BACKEND_URL=(gcloud run services describe $env:BACKEND_SERVICE --region $env:REGION --format="value(status.url)" --project $env:PROJECT_ID)
-Write-Host $env:BACKEND_URL
-
-# Optional: persist discovered URL back into .env for reuse
-Add-Content .env "`nBACKEND_URL=$($env:BACKEND_URL)"
-```
-
-Health check:
-
-```powershell
-Invoke-RestMethod -Uri "$env:BACKEND_URL/api/health" -Method Get
-```
-
----
-
-## 6. Frontend Deployment (Cloud Run)
-
-### 6.1 Create frontend Dockerfile
-
-Create file `Dockerfile.frontend` at repo root:
-
-```dockerfile
-# Build stage
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY frontend/package*.json ./
-RUN npm install
-COPY frontend/ ./
-ARG VITE_API_BASE_URL
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-RUN npm run build
-
-# Serve stage
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 8080
-CMD ["sh", "-c", "sed -i 's/listen       80;/listen       8080;/' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
-```
-
-### 6.2 Build and deploy frontend
-
-```powershell
-gcloud builds submit `
-  --tag gcr.io/$env:PROJECT_ID/$env:FRONTEND_SERVICE `
-  --config /dev/null `
-  --substitutions=_DUMMY=1 `
-  --pack image=gcr.io/$env:PROJECT_ID/$env:FRONTEND_SERVICE `
-  --project $env:PROJECT_ID
-```
-
-If the above pack build is not available in your environment, use Docker build from repo root:
-
-```powershell
-docker build -f Dockerfile.frontend --build-arg VITE_API_BASE_URL=$env:BACKEND_URL -t gcr.io/$env:PROJECT_ID/$env:FRONTEND_SERVICE .
-docker push gcr.io/$env:PROJECT_ID/$env:FRONTEND_SERVICE
-```
-
-Deploy frontend:
-
-```powershell
-gcloud run deploy $env:FRONTEND_SERVICE `
-  --image gcr.io/$env:PROJECT_ID/$env:FRONTEND_SERVICE `
-  --platform managed `
-  --region $env:REGION `
-  --allow-unauthenticated `
-  --project $env:PROJECT_ID
-```
-
-Get frontend URL:
-
-```powershell
-$env:FRONTEND_URL=(gcloud run services describe $env:FRONTEND_SERVICE --region $env:REGION --format="value(status.url)" --project $env:PROJECT_ID)
-Write-Host $env:FRONTEND_URL
-
-# Optional: persist discovered URL back into .env for reuse
-Add-Content .env "`nFRONTEND_URL=$($env:FRONTEND_URL)"
-```
-
----
-
-## 7. Validate End-to-End Functionality
-
-1. Open frontend URL in browser.
-2. Submit an incident in UI.
-3. Confirm agent flow and final conclusion appear.
-4. Validate backend endpoint directly:
-
-```powershell
-Invoke-RestMethod -Uri "$env:BACKEND_URL/api/trace/execute" -Method Post -ContentType "application/json" -Body '{"incident_text":"Finance reconciliation failed after token rotation and fallback patch.","include_raw_data":false}'
-```
-
----
-
-## 8. Share With Testers
-
-Share:
-
-- Frontend URL: main entry point for testers
-- Optional backend health URL: `/api/health`
-
-For demo stability, set Cloud Run min instances to 1:
-
-```powershell
-gcloud run services update $env:BACKEND_SERVICE --region $env:REGION --min-instances 1 --project $env:PROJECT_ID
-gcloud run services update $env:FRONTEND_SERVICE --region $env:REGION --min-instances 1 --project $env:PROJECT_ID
-```
-
----
-
-## 9. Common Issues and Quick Fixes
-
-- **CORS errors in browser**
-  - Ensure backend CORS allows frontend Cloud Run domain.
-
-- **401/403 BigQuery or Secret access**
-  - Re-check IAM roles on Cloud Run service account.
-
-- **Frontend cannot reach backend**
-  - Verify `VITE_API_BASE_URL` was set correctly at frontend build time.
-
-- **Cold starts during demos**
-  - Set min instances to 1 as shown above.
-
----
-
-## 10. Optional Hardening (Post-Demo)
-
-- Restrict backend ingress/auth and place frontend behind custom domain.
-- Use dataset-level BigQuery IAM instead of project-level roles.
-- Add Cloud Logging dashboards and alerting.
-- Move to CI/CD (Cloud Build trigger from GitHub).
+- **Frontend URL:** Send this to your testers. They can interact with the agent without needing any credentials.
+- **Backend URL:** Acts entirely as a proxy. Protects your Agent Runtime from unauthenticated access.

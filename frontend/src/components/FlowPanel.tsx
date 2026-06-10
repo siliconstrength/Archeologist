@@ -82,8 +82,10 @@ export function FlowPanel({ summary, events }: FlowPanelProps): JSX.Element {
           >
             <span className="flow-tab-seq">{index + 1}</span>
             <span className="flow-tab-name">{stage.agent_name}</span>
-            {!isLast ? <span className="flow-tab-arrow" aria-hidden="true">→</span> : null}
-            <span className={`pill ${stage.status}`}>{statusLabel(stage.status)}</span>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.45rem" }}>
+              {!isLast ? <span className="flow-tab-arrow" aria-hidden="true">→</span> : null}
+              <span className={`pill ${stage.status}`}>{statusLabel(stage.status)}</span>
+            </div>
           </button>
           );
         })}

@@ -167,11 +167,19 @@ button:disabled {
   padding: 0.42rem 0.62rem;
   color: var(--text-primary);
   min-width: 0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.flow-tab:active {
+  transform: translateY(1px);
 }
 
 .flow-tab.active {
-  border-color: rgba(17, 197, 191, 0.75);
-  box-shadow: 0 0 0 1px rgba(17, 197, 191, 0.25) inset;
+  border-color: rgba(17, 197, 191, 1);
+  background: rgba(17, 197, 191, 0.15);
+  box-shadow: 0 0 0 1px rgba(17, 197, 191, 0.5) inset, 0 4px 12px rgba(17, 197, 191, 0.15);
+  transform: translateY(-2px);
 }
 
 .flow-tab-name {
@@ -198,7 +206,6 @@ button:disabled {
 .flow-tab-arrow {
   font-weight: 700;
   color: var(--accent-secondary);
-  margin-left: auto;
 }
 
 .flow-detail {

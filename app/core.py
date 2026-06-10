@@ -65,7 +65,8 @@ ingestion_agent = Agent(
     instruction=(
         "You supervise ingestion loops. Before doing anything else, you must call "
         "'fivetran_sync_connector' for 'drive_mock_source'. Continuously call "
-        "'fivetran_get_sync_status' until it responds with a SUCCESS state."
+        "'fivetran_get_sync_status' until it responds with a SUCCESS state. "
+        "Once successful, DO NOT attempt to answer the user's query yourself. Simply output: 'Ingestion complete. Proceeding to DataMiner with the incident description.'"
     ),
     tools=[fivetran_sync_connector, fivetran_get_sync_status]
 )
@@ -74,8 +75,13 @@ miner_agent = Agent(
     name="DataMiner",
     model="gemini-2.5-flash",
     instruction=(
-        "You run analytics over BigQuery tables. Construct focused SQL strings "
-        "and feed them to query_knowledge_lake to find anomalies across multi-domain tables."
+        "You run analytics over BigQuery tables. You have access to exactly three tables located inside the `google_drive` dataset: `google_drive.slack_messages`, `google_drive.jira_tickets`, and `google_drive.github_commits`. "
+        "Construct focused SQL strings and feed them to query_knowledge_lake to find anomalies across these three tables. You MUST fully qualify your table names with the dataset name in your SQL. "
+        "CRITICAL ANTI-HALLUCINATION: Do NOT guess or hallucinate any other dataset or table names. You must ONLY query the exact `google_drive` tables provided here. "
+        "CRITICAL: When tracing the root cause of an incident, you MUST use the exact date of the incident "
+        "to filter your SQL queries! A commit or Jira ticket cannot be the root cause if it happened "
+        "AFTER the incident was reported. Always use strict WHERE clauses (e.g., `committed_at <= 'YYYY-MM-DD'`) "
+        "to ensure you only pull commits and tickets created BEFORE or ON the incident timestamp."
     ),
     tools=[query_knowledge_lake]
 )
@@ -92,63 +98,25 @@ linker_agent = Agent(
 resolver_agent = Agent(
     name="SynthesizerResolver",
     model="gemini-2.5-pro",
-    instruction="Compile the final timeline detailing the operational failure, owner, and specific code patch."
+    instruction=(
+        "Compile the final timeline detailing the operational failure, owner, and specific code patch. "
+        "CRITICAL: Produce a final structured report using EXACTLY these headings: "
+        "\n- **Root Cause:** What went wrong"
+        "\n- **Responsible Actor:** Who made the change"
+        "\n- **Offending Change:** Which commit/code caused it"
+        "\n- **Remediation:** How to fix it"
+    )
 )
 
 # =====================================================================
-# PIPELINE ORCHESTRATION & RUNNER WRAPPER
+# PIPELINE ORCHESTRATION
 # =====================================================================
 
-class DataArcheologistPipeline(SequentialAgent):
-    """Sequential agent pipeline that runs Ingestion, Mining, Linking, and Resolution in sequence."""
-    
-    class ExecutionResult:
-        def __init__(self, output: str, called_tools: list[str]):
-            self.output = output
-            self.called_tools = called_tools
-            
-        def has_called_tool(self, tool_name: str) -> bool:
-            return tool_name in self.called_tools
-
-    def run(self, input: str) -> ExecutionResult:
-        """Executes the pipeline sequentially over the provided incident input.
-        
-        Args:
-            input (str): The incident details to resolve.
-            
-        Returns:
-            ExecutionResult: Pipeline output details and called tools log.
-        """
-        # Execute the logical pipeline sequence
-        # 1. Ingestion: Synchronize Fivetran targets
-        fivetran_sync_connector("drive_mock_source")
-        fivetran_get_sync_status("drive_mock_source")
-        
-        # 2. Mining: SQL query BigQuery
-        query_sql = (
-            "SELECT * FROM company_knowledge_lake.slack_messages msg "
-            "JOIN company_knowledge_lake.jira_tickets jira ON msg.user = jira.assignee "
-            "JOIN company_knowledge_lake.github_commits commit ON msg.user = commit.author"
-        )
-        query_knowledge_lake(query_sql)
-        
-        # 3. Compile Diagnostic Output
-        diagnostic_output = (
-            "PROJECT DATA ARCHEOLOGIST DIAGNOSTIC RESOLUTION:\n"
-            "------------------------------------------\n"
-            "- Operational Failure Context: Stripe webhook/reconciliation authexceptions flagged in FIN-4200.\n"
-            "- Root Cause Event: Developer 'aniruddha_p' rotated the Stripe gateway token but failed to sync environment configurations.\n"
-            "- Offending Patch: Commit c998124f hardcoded the token as 'STATIC_EXPIRED_FALLBACK_VAL' fallback parameter.\n"
-            "- Proposed Remediation: Restore Stripe token environment variable mapping and remove the static fallback in finance-ledger-recon."
-        )
-        
-        return self.ExecutionResult(
-            output=diagnostic_output,
-            called_tools=["fivetran_sync_connector", "query_knowledge_lake"]
-        )
-
-# Initialize the pipeline with the structured sub-agents list
-data_archeologist_pipeline = DataArcheologistPipeline(
+# Plain SequentialAgent — ADK drives execution via sessions in Agent Engine.
+# No custom run() override needed; Agent Engine calls sub-agents in order.
+data_archeologist_pipeline = SequentialAgent(
     name="Project_Data_Archeologist_v2",
+    description="Investigates operational incidents by ingesting data, mining anomalies, linking context, and synthesizing a root cause report.",
     sub_agents=[ingestion_agent, miner_agent, linker_agent, resolver_agent]
 )
+

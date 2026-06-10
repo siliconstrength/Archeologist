@@ -10,11 +10,10 @@ const defaultIncident =
 
 export function InputPanel({ isRunning, onSubmit }: InputPanelProps): JSX.Element {
   const [incidentText, setIncidentText] = useState(defaultIncident);
-  const [includeRawData, setIncludeRawData] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    onSubmit(incidentText, includeRawData);
+    onSubmit(incidentText, false);
   };
 
   return (
@@ -32,16 +31,6 @@ export function InputPanel({ isRunning, onSubmit }: InputPanelProps): JSX.Elemen
           required
           disabled={isRunning}
         />
-        <label className="checkbox-row" htmlFor="include-raw-data">
-          <input
-            id="include-raw-data"
-            type="checkbox"
-            checked={includeRawData}
-            onChange={(event) => setIncludeRawData(event.target.checked)}
-            disabled={isRunning}
-          />
-          Include raw anomaly rows in trace payload
-        </label>
         <button type="submit" disabled={isRunning || incidentText.trim().length < 10}>
           {isRunning ? "Analyzing..." : "Analyze Incident"}
         </button>

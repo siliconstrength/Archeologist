@@ -1,0 +1,3 @@
+# Do not ignore any project files – we need the entire source tree,
+# especially the `frontend/` directory that contains package.json.
+# (An empty .gcloudignore would also work.)

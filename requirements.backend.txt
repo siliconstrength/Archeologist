@@ -1,0 +1,7 @@
+# Minimal dependencies for the FastAPI Proxy backend
+uvicorn==0.48.0
+httpx==0.27.0
+google-auth==2.38.0
+pydantic==2.11.5
+starlette
+requests

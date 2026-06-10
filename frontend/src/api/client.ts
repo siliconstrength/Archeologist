@@ -1,7 +1,8 @@
 import type { TraceExecuteRequest, TraceExecuteResponse } from "../types";
 
 export async function runTrace(request: TraceExecuteRequest): Promise<TraceExecuteResponse> {
-  const response = await fetch("/api/trace/execute", {
+  const apiUrl = (import.meta as any).env?.VITE_API_URL || "";
+  const response = await fetch(`${apiUrl}/api/trace/execute`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

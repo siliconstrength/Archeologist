@@ -30,6 +30,10 @@ export default function App(): JSX.Element {
   async function handleRun(incidentText: string, includeRawData: boolean): Promise<void> {
     setStatus("running");
     setErrorText(null);
+    setExecutionId(null);
+    setEvents([]);
+    setConclusion(emptyConclusion());
+    setSummary([]);
 
     try {
       const response = await runTrace({
