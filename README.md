@@ -392,9 +392,9 @@ It is highly probable that the **refactoring and migration effort led by `carol_
 
 The UI output example file captures the full incident entry plus agent-level results and final remediation:
 
-![Project Data Archeologist UI Output 1](assets/UI.png)
+![Project Data Archeologist UI Output 1](assets/ui.png)
 
-![Project Data Archeologist UI Output 2](assets/UI-1.png)
+![Project Data Archeologist UI Output 2](assets/ui-1.png)
 
 
 ---
