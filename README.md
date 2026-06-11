@@ -18,6 +18,15 @@ By integrating the **Fivetran MCP Server** with the **Google Agent Development K
 
 ---
 
+## Tech Stack
+- **Frontend**: React, Vite, TypeScript
+- **Backend**: FastAPI
+- **Agent**: Google ADK, Google Agent Cloud Builder or Vertex AI Agent Engine
+- **Database**: BigQuery
+- **Ingestion**: Fivetran MCP
+
+---
+
 ## Key Capabilities
 
 1. **Fully Managed Agent Engine**: The core AI logic is hosted natively on the **Vertex AI Agent Engine**, providing enterprise-grade reliability, security, and native integrations with Google Cloud services.
